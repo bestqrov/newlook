@@ -8,15 +8,22 @@ import AuthForm from "@/components/AuthForm"
 import ProOffers from "@/components/ProOffers"
 import ProBookings, { type Hour } from "@/components/ProBookings"
 import ProPayment from "@/components/ProPayment"
+import { categoryOf, labelOf, useCatalog } from "@/lib/catalog-api"
+import type { Live, Address, Extras } from "@/lib/business-types"
+import LiveControls from "@/components/pro/LiveControls"
+import QueuePanel from "@/components/pro/QueuePanel"
+import ProfileExtrasForm from "@/components/pro/ProfileExtrasForm"
 
-type Business = { id: string; name: string; category: string; city: string; bio: string; phone: string; published: boolean; hours: Hour[] }
-type Work = { id: string; title: string; caption: string; imageUrl: string }
+type Business = { id: string; name: string; category: string; city: string; bio: string; phone: string; published: boolean; hours: Hour[]; address?: Address; amenities?: string[]; extras?: Extras; live?: Live | null }
+type Work = { id: string; title: string; caption: string; imageUrl: string; tags: string[] }
 type Service = { id: string; name: string; durationMinutes: number; price: number }
 type Sub = { status: string; expiresAt: string | null; planName: string | null } | null
 
 export default function ProStudio() {
   const { t } = useTranslation()
   const { user, ready } = useAuth()
+  const catalog = useCatalog()
+  const [postTags, setPostTags] = useState<string[]>([])
   const [business, setBusiness] = useState<Business | null>(null)
   const [sub, setSub] = useState<Sub>(null)
   const [portfolio, setPortfolio] = useState<Work[]>([])
@@ -89,9 +96,10 @@ export default function ProStudio() {
     try {
       const form = new FormData()
       form.append("title", postTitle); form.append("caption", postCaption)
+      form.append("tags", postTags.join(","))
       form.append("image", await sanitizeImage(file)) // strips GPS/EXIF before upload
       const r = await api<{ work: Work }>("/api/me/portfolio", { form })
-      setPortfolio((p) => [r.work, ...p]); setPostTitle(""); setPostCaption(""); setFile(null); setNotice("تنشر العمل ديالك بنجاح.")
+      setPortfolio((p) => [r.work, ...p]); setPostTitle(""); setPostCaption(""); setFile(null); setPostTags([]); setNotice("تنشر العمل ديالك بنجاح.")
     } catch (e) { setNotice(errorText(e, "ما قدرناش نرفعو الصورة. جرّب صورة أخرى أو عاود من بعد.")) }
     finally { setBusy(false) }
   }
@@ -100,6 +108,14 @@ export default function ProStudio() {
     try { await api(`/api/me/portfolio/${item.id}`, { method: "DELETE" }); setPortfolio((p) => p.filter((x) => x.id !== item.id)) }
     catch { setNotice("ما تحيدش العمل. عاود المحاولة.") }
   }
+
+  const toggleWorkTag = async (w: Work, tag: string) => {
+    const tags = w.tags.includes(tag) ? w.tags.filter((x) => x !== tag) : [...w.tags, tag]
+    try { const r = await api<{ work: Work }>(`/api/me/portfolio/${w.id}`, { method: "PATCH", body: { tags } }); setPortfolio((p) => p.map((x) => (x.id === w.id ? r.work : x))) }
+    catch (e) { setNotice(errorText(e)) }
+  }
+  const catDef = business ? categoryOf(catalog, business.category) : null
+  const styleTags = catDef?.styleTags ?? []
 
   const field = "mt-1 w-full border border-border bg-background p-3"
   return <main className="min-h-screen bg-background px-5 py-10 text-foreground sm:px-8">
@@ -139,12 +155,16 @@ export default function ProStudio() {
               <input required maxLength={100} value={postTitle} onChange={(e) => setPostTitle(e.target.value)} placeholder={t("عنوان العمل")} className="w-full border border-border bg-background p-3 text-sm" />
               <input maxLength={300} value={postCaption} onChange={(e) => setPostCaption(e.target.value)} placeholder={t("وصف قصير (اختياري)")} className="w-full border border-border bg-background p-3 text-sm" />
               <label className="flex cursor-pointer items-center gap-3 border border-dashed border-border p-4 text-sm text-muted-foreground"><UploadCloud size={18} className="text-primary" />{file ? file.name : t("اختار صورة من جهازك")}<input type="file" accept="image/jpeg,image/png,image/webp" onChange={(e) => setFile(e.target.files?.[0] ?? null)} className="sr-only" /></label>
+              {styleTags.length > 0 && <div className="flex flex-wrap gap-2">{styleTags.map((s) => <button type="button" key={s.key} onClick={() => setPostTags((p) => (p.includes(s.key) ? p.filter((x) => x !== s.key) : [...p, s.key]))} className={`border px-3 py-1 text-xs ${postTags.includes(s.key) ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{labelOf(s.labels, "ar")}</button>)}</div>}
               <button disabled={busy} className="w-full bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-60">{t("نشر العمل")}</button>
             </form>
-            <div className="mt-5 grid grid-cols-2 gap-3">{portfolio.map((item) => <article key={item.id} className="relative overflow-hidden border border-border"><img src={fileUrl(item.imageUrl)} alt={item.title} className="h-28 w-full object-cover" /><div className="flex items-center justify-between gap-2 p-2"><span className="truncate text-xs">{item.title}</span><button onClick={() => void removePortfolio(item)} className="text-xs text-destructive">{t("حذف")}</button></div></article>)}</div>
+            <div className="mt-5 grid grid-cols-2 gap-3">{portfolio.map((item) => <article key={item.id} className="relative overflow-hidden border border-border"><img src={fileUrl(item.imageUrl)} alt={item.title} className="h-28 w-full object-cover" /><div className="flex items-center justify-between gap-2 p-2"><span className="truncate text-xs">{item.title}</span><button onClick={() => void removePortfolio(item)} className="text-xs text-destructive">{t("حذف")}</button></div>{styleTags.length > 0 && <div className="flex flex-wrap gap-1 px-2 pb-2">{styleTags.map((s) => <button key={s.key} onClick={() => void toggleWorkTag(item, s.key)} className={`border px-2 py-0.5 text-[10px] ${item.tags.includes(s.key) ? "border-primary bg-primary text-primary-foreground" : "border-border"}`}>{labelOf(s.labels, "ar")}</button>)}</div>}</article>)}</div>
           </section>
         </div>}
         {business && <section className="my-8 grid gap-4 border border-border bg-card p-6 sm:grid-cols-4"><div><p className="text-xs text-muted-foreground">{t("الخدمات")}</p><p className="mt-1 font-display text-3xl">{services.length}</p></div><div><p className="text-xs text-muted-foreground">{t("الأعمال المنشورة")}</p><p className="mt-1 font-display text-3xl">{portfolio.length}</p></div><div><p className="text-xs text-muted-foreground">{t("حالة البروفايل")}</p><p className="mt-1 font-semibold">{business.published ? t("منشور") : t("مسودة")}</p></div><div className="flex flex-col justify-center gap-2 text-sm"><a href={`/b/${business.id}`} target="_blank" rel="noreferrer" className="font-semibold text-primary">{t("عرض صفحتي العامة")}</a><button type="button" onClick={() => { void navigator.clipboard.writeText(`${window.location.origin}/b/${business.id}`); setNotice("تنسخ رابط صفحتك. شاركو مع الزبناء.") }} className="text-start text-muted-foreground hover:text-primary">{t("نسخ الرابط")}</button></div></section>}
+        {business && catDef && catDef.liveStates.length > 0 && <LiveControls states={catDef.liveStates} initial={business.live ?? null} />}
+        {business && catDef?.features.includes("walkin_queue") && <QueuePanel />}
+        {business && catDef && catalog && <ProfileExtrasForm key={business.category} business={business} services={services} category={catDef} catalog={catalog} onSaved={() => void load()} />}
         {business && <ProBookings initialHours={business.hours} subscription={sub} />}
         {business && <ProPayment onPaid={() => void load()} />}
         {business && <ProOffers />}
