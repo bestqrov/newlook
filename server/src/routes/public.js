@@ -20,6 +20,16 @@ async function listActive(filter) {
   return biz.filter((b) => ok.has(String(b._id)))
 }
 
+/** Services of a business, in the requested order. 1–6 distinct ids, all from that business. */
+async function servicesOf(businessId, ids) {
+  const unique = [...new Set(ids)]
+  if (!unique.length || unique.length > 6 || unique.length !== ids.length) throw badRequest("invalid_input")
+  const list = await Service.find({ _id: { $in: unique.map(requireId) }, businessId }).lean()
+  if (list.length !== unique.length) throw badRequest("invalid_input")
+  return unique.map((id) => list.find((s) => String(s._id) === id))
+}
+const totalMinutes = (list) => list.reduce((n, s) => n + s.durationMinutes, 0)
+
 // GET /api/businesses?category=&city=
 r.get("/businesses", ah(async (req, res) => {
   const q = parse(z.object({ category: z.enum(CATEGORIES).optional(), city: z.enum(CITIES).optional() }), req.query)
@@ -81,12 +91,16 @@ r.get("/search", ah(async (req, res) => {
 // GET /api/businesses/:id/slots?service=&day=YYYY-MM-DD
 r.get("/businesses/:id/slots", ah(async (req, res) => {
   const id = requireId(req.params.id)
-  const q = parse(z.object({ service: z.string(), day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/) }), req.query)
+  const q = parse(z.object({
+    service: z.string().optional(), services: z.string().max(200).optional(),
+    day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    audience: z.enum(["women", "men"]).optional(),
+  }), req.query)
+  const ids = (q.services ?? q.service ?? "").split(",").map((s) => s.trim()).filter(Boolean)
   const b = await Business.findOne({ _id: id, published: true }).lean()
   if (!b || !(await businessIsActive(b._id))) throw notFound()
-  const s = await Service.findOne({ _id: requireId(q.service), businessId: b._id }).lean()
-  if (!s) throw notFound("service_not_found")
-  res.json({ slots: await computeSlots(b, s, q.day) })
+  const list = await servicesOf(b._id, ids)
+  res.json({ slots: await computeSlots(b, totalMinutes(list), q.day, { audience: q.audience }) })
 }))
 
 const bookingLimiter = limiter(60 * 60_000, 6)
@@ -95,8 +109,10 @@ const bookingLimiter = limiter(60 * 60_000, 6)
 r.post("/businesses/:id/bookings", bookingLimiter, ah(async (req, res) => {
   const id = requireId(req.params.id)
   const body = parse(z.object({
-    serviceId: z.string(), startsAt: z.string().datetime(),
+    serviceId: z.string().optional(), serviceIds: z.array(z.string()).max(6).optional(),
+    startsAt: z.string().datetime(),
     name: z.string().trim().min(2).max(80), phone: z.string().max(30),
+    audience: z.enum(["women", "men"]).optional(),
     website: z.string().max(0).optional(), // honeypot: real users never fill it
   }), req.body)
   const phone = normalizePhone(body.phone)
@@ -104,8 +120,8 @@ r.post("/businesses/:id/bookings", bookingLimiter, ah(async (req, res) => {
 
   const b = await Business.findOne({ _id: id, published: true }).lean()
   if (!b || !(await businessIsActive(b._id))) throw notFound()
-  const s = await Service.findOne({ _id: requireId(body.serviceId), businessId: b._id }).lean()
-  if (!s) throw notFound("service_not_found")
+  const list = await servicesOf(b._id, body.serviceIds ?? (body.serviceId ? [body.serviceId] : []))
+  const duration = totalMinutes(list)
 
   const start = DateTime.fromISO(body.startsAt).toUTC()
   if (start.toMillis() > Date.now() + 60 * 86400_000) throw badRequest("too_far")
@@ -120,11 +136,15 @@ r.post("/businesses/:id/bookings", bookingLimiter, ah(async (req, res) => {
   const booking = await withLock(`booking:${b._id}`, async () => {
     // Re-check availability inside the lock → no double booking.
     const day = start.setZone(config.timezone).toISODate()
-    const slots = await computeSlots(b, s, day)
+    const slots = await computeSlots(b, duration, day, { audience: body.audience })
     if (!slots.includes(start.toISO())) throw conflict("slot_unavailable")
     return Booking.create({
-      businessId: b._id, serviceId: s._id, serviceName: s.name, price: s.price,
-      startsAt: start.toJSDate(), endsAt: start.plus({ minutes: s.durationMinutes }).toJSDate(),
+      businessId: b._id, serviceId: list[0]._id,
+      serviceName: list.map((s) => s.name).join(" + "),
+      price: list.reduce((n, s) => n + s.price, 0),
+      items: list.map((s) => ({ serviceId: s._id, name: s.name, price: s.price, durationMinutes: s.durationMinutes })),
+      audience: body.audience,
+      startsAt: start.toJSDate(), endsAt: start.plus({ minutes: duration }).toJSDate(),
       clientName: body.name, clientPhone: phone,
     })
   })

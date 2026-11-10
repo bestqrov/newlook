@@ -1,6 +1,8 @@
 import { DateTime } from "luxon"
 import { config } from "../config.js"
 import { Audit, Business, Booking, Lock, Plan, Subscription, isObjectId } from "../models.js"
+import { toMinutes } from "./schedule.js"
+import { categoryByValue } from "../catalog/categories.js"
 
 export const CATEGORIES = ["حلاقة رجالية", "صالون نسائي", "الشعر والتصفيف", "العناية بالبشرة", "الأظافر", "الحمام والسبا", "المكياج"]
 export const CITIES = ["الدار البيضاء", "الرباط", "مراكش", "طنجة", "فاس", "أكادير", "وجدة", "تطوان", "مدينة أخرى"]
@@ -109,16 +111,22 @@ export async function withLock(key, fn, { ttlMs = 10_000, tries = 40 } = {}) {
 }
 
 // ─── Slots ──────────────────────────────────────────────────────────
-const toMinutes = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m }
 const SLOT_STEP = 15
 const MIN_NOTICE_MIN = 30
 
-/** Free start times (ISO strings) for a service on a given day (YYYY-MM-DD, Casablanca time). */
-export async function computeSlots(business, service, day) {
+/**
+ * Free start times (ISO strings) for `durationMinutes` on a given day (YYYY-MM-DD, Casablanca).
+ * Hammams with a gender schedule need `audience` ("women" | "men").
+ */
+export async function computeSlots(business, durationMinutes, day, { audience } = {}) {
   const dayStart = DateTime.fromISO(day, { zone: config.timezone }).startOf("day")
   if (!dayStart.isValid) throw badRequest("invalid_day")
   const weekday = dayStart.weekday % 7 // luxon: Mon=1..Sun=7 → Sun=0
   const ranges = (business.hours || []).filter((h) => h.weekday === weekday)
+  const schedule = business.extras?.genderSchedule ?? []
+  const usesAudience = categoryByValue(business.category).features.includes("gender_schedule") && schedule.length > 0
+  if (usesAudience && !["women", "men"].includes(audience)) throw badRequest("audience_required")
+  const allowed = usesAudience ? schedule.filter((s) => s.weekday === weekday && (s.audience === audience || s.audience === "mixed")) : null
   if (!ranges.length) return []
 
   const dayEnd = dayStart.plus({ days: 1 })
@@ -131,8 +139,9 @@ export async function computeSlots(business, service, day) {
   const out = []
   for (const r of ranges) {
     const open = toMinutes(r.start), close = toMinutes(r.end)
-    for (let m = open; m + service.durationMinutes <= close; m += SLOT_STEP) {
-      const s = dayStart.plus({ minutes: m }), e = s.plus({ minutes: service.durationMinutes })
+    for (let m = open; m + durationMinutes <= close; m += SLOT_STEP) {
+      if (allowed && !allowed.some((a) => toMinutes(a.start) <= m && m + durationMinutes <= toMinutes(a.end))) continue
+      const s = dayStart.plus({ minutes: m }), e = s.plus({ minutes: durationMinutes })
       if (s.toMillis() < earliest) continue
       const clash = busy.some((b) => b.startsAt.getTime() < e.toMillis() && b.endsAt.getTime() > s.toMillis())
       if (!clash) out.push(s.toUTC().toISO())
