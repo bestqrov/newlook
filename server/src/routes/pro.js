@@ -10,6 +10,9 @@ import {
 } from "../lib/common.js"
 import { requireAuth } from "../lib/auth.js"
 import { PRIVATE_DIR, PUBLIC_DIR, removeUpload, saveUpload, upload } from "../lib/uploads.js"
+import { categoryByKey, categoryByValue } from "../catalog/categories.js"
+import { addressSchema, checkHammamExtras, parseAmenities, parseExtras, parseTags } from "../lib/extras.js"
+import { presentMany } from "../lib/present.js"
 
 const r = Router()
 r.use(requireAuth)
@@ -23,7 +26,7 @@ async function myBusiness(req, { required = true } = {}) {
 }
 
 const svcOut = (s) => ({ id: String(s._id), name: s.name, price: s.price, durationMinutes: s.durationMinutes })
-const workOut = (w) => ({ id: String(w._id), title: w.title, caption: w.caption, imageUrl: w.imageUrl })
+const workOut = (w) => ({ id: String(w._id), title: w.title, caption: w.caption, imageUrl: w.imageUrl, tags: w.tags ?? [] })
 
 // ─── Business profile ───────────────────────────────────────────────
 r.get("/business", ah(async (req, res) => {
@@ -34,8 +37,9 @@ r.get("/business", ah(async (req, res) => {
     Portfolio.find({ businessId: b._id }).sort({ createdAt: -1 }).lean(),
     Subscription.findOne({ businessId: b._id }).populate("planId", "name").lean(),
   ])
+  const [presented] = await presentMany([b.toObject()])
   res.json({
-    business: b.toJSON(),
+    business: { ...b.toJSON(), categoryKey: presented.categoryKey, live: presented.live, todayStatus: presented.todayStatus, currentAudience: presented.currentAudience },
     services: services.map(svcOut),
     works: works.map(workOut),
     subscription: sub && { status: sub.status, expiresAt: sub.expiresAt, planName: sub.planId?.name ?? null },
@@ -49,16 +53,28 @@ const bizInput = z.object({
   bio: z.string().trim().max(1000).default(""),
   phone: z.string().trim().max(30).default(""),
   published: z.boolean().default(false),
+  address: addressSchema.optional(),
+  amenities: z.array(z.string()).optional(),
+  extras: z.record(z.any()).optional(),
 })
 
 r.put("/business", ah(async (req, res) => {
-  const body = parse(bizInput, req.body)
+  const { address, amenities: amenInput, extras: extrasInput, ...body } = parse(bizInput, req.body)
   let phone = ""
   if (body.phone) { phone = normalizePhone(body.phone); if (!phone) throw badRequest("invalid_phone") }
   const existing = await myBusiness(req, { required: false })
+  const key = categoryByValue(body.category).key
+  const sameCategory = existing?.category === body.category
+  const extras = parseExtras(key, extrasInput ?? (sameCategory ? existing.extras : {}))
+  const allowed = categoryByKey(key).amenities
+  const amenities = amenInput !== undefined ? parseAmenities(key, amenInput) : (existing?.amenities ?? []).filter((a) => allowed.includes(a))
+  if (key === "hammam") {
+    const serviceIds = existing ? (await Service.find({ businessId: existing._id }).distinct("_id")).map(String) : []
+    checkHammamExtras(extras, { hours: existing?.hours ?? [], serviceIds })
+  }
   const b = await Business.findOneAndUpdate(
     { userId: req.user._id },
-    { $set: { ...body, phone } },
+    { $set: { ...body, phone, extras, amenities, ...(address && { address }) } },
     { upsert: true, new: true, runValidators: true },
   )
   if (!existing && config.trialDays > 0) {
@@ -82,8 +98,13 @@ r.put("/hours", ah(async (req, res) => {
     const day = hours.filter((h) => h.weekday === d).sort((a, c) => a.start.localeCompare(c.start))
     for (let i = 1; i < day.length; i++) if (day[i].start < day[i - 1].end) throw badRequest("overlapping_hours")
   }
-  const b = await Business.findOneAndUpdate({ userId: req.user._id }, { $set: { hours } }, { new: true })
-  if (!b) throw notFound("no_business")
+  const b = await myBusiness(req)
+  if (categoryByValue(b.category).key === "hammam") {
+    const serviceIds = (await Service.find({ businessId: b._id }).distinct("_id")).map(String)
+    checkHammamExtras(parseExtras("hammam", b.extras), { hours, serviceIds })
+  }
+  b.hours = hours
+  await b.save()
   res.json({ hours: b.hours })
 }))
 
@@ -112,16 +133,31 @@ r.delete("/services/:id", ah(async (req, res) => {
   const b = await myBusiness(req)
   const out = await Service.deleteOne({ _id: requireId(req.params.id), businessId: b._id })
   if (!out.deletedCount) throw notFound()
+  await Business.updateOne({ _id: b._id }, { $pull: { "extras.ritualSteps": req.params.id } })
   res.json({ ok: true })
+}))
+
+// ─── Live status (barber: free/busy/closed, hammam: quiet/moderate/crowded/closed) ──
+const liveLimiter = limiter(60 * 60_000, 120)
+r.patch("/live", liveLimiter, ah(async (req, res) => {
+  const b = await myBusiness(req)
+  const states = categoryByValue(b.category).liveStates
+  if (!states.length) throw badRequest("feature_unavailable")
+  const { state, waiting } = parse(z.object({ state: z.enum(states), waiting: z.number().int().min(0).max(50).optional() }), req.body)
+  b.live = { state, waiting: waiting ?? 0, updatedAt: new Date() }
+  await b.save()
+  const [presented] = await presentMany([b.toObject()])
+  res.json({ live: presented.live })
 }))
 
 // ─── Portfolio ──────────────────────────────────────────────────────
 r.post("/portfolio", uploadLimiter, upload.single("image"), ah(async (req, res) => {
   const b = await myBusiness(req)
-  const body = parse(z.object({ title: z.string().trim().min(1).max(100), caption: z.string().trim().max(300).default("") }), req.body)
+  const body = parse(z.object({ title: z.string().trim().min(1).max(100), caption: z.string().trim().max(300).default(""), tags: z.string().max(200).optional() }), req.body)
+  const tags = parseTags(categoryByValue(b.category).key, body.tags)
   if ((await Portfolio.countDocuments({ businessId: b._id })) >= 200) throw badRequest("too_many_works")
   const rel = await saveUpload(req.file, { dir: PUBLIC_DIR, userId: req.user._id })
-  const w = await Portfolio.create({ ...body, businessId: b._id, filePath: rel, imageUrl: `/uploads/${rel}` })
+  const w = await Portfolio.create({ title: body.title, caption: body.caption, tags, businessId: b._id, filePath: rel, imageUrl: `/uploads/${rel}` })
   res.status(201).json({ work: workOut(w) })
 }))
 
@@ -131,6 +167,14 @@ r.delete("/portfolio/:id", ah(async (req, res) => {
   if (!w) throw notFound()
   await removeUpload(PUBLIC_DIR, w.filePath)
   res.json({ ok: true })
+}))
+
+r.patch("/portfolio/:id", ah(async (req, res) => {
+  const b = await myBusiness(req)
+  const { tags } = parse(z.object({ tags: z.array(z.string()).max(5) }), req.body)
+  const w = await Portfolio.findOneAndUpdate({ _id: requireId(req.params.id), businessId: b._id }, { $set: { tags: parseTags(categoryByValue(b.category).key, tags) } }, { new: true })
+  if (!w) throw notFound()
+  res.json({ work: workOut(w) })
 }))
 
 // ─── Bookings ───────────────────────────────────────────────────────

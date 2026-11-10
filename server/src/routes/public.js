@@ -9,10 +9,9 @@ import {
 } from "../lib/common.js"
 import { requireAuth } from "../lib/auth.js"
 import { config } from "../config.js"
+import { presentMany } from "../lib/present.js"
 
 const r = Router()
-
-const publicBiz = (b) => ({ id: String(b._id), name: b.name, category: b.category, city: b.city, bio: b.bio, phone: b.phone })
 
 /** Published businesses with a valid subscription. */
 async function listActive(filter) {
@@ -31,7 +30,8 @@ r.get("/businesses", ah(async (req, res) => {
     { $group: { _id: "$businessId", imageUrl: { $first: "$imageUrl" } } },
   ])
   const coverOf = new Map(covers.map((c) => [String(c._id), c.imageUrl]))
-  res.json({ businesses: biz.map((b) => ({ ...publicBiz(b), cover: coverOf.get(String(b._id)) ?? null })) })
+  const presented = await presentMany(biz)
+  res.json({ businesses: presented.map((p) => ({ ...p, cover: coverOf.get(p.id) ?? null })) })
 }))
 
 // GET /api/businesses/:id
@@ -43,10 +43,11 @@ r.get("/businesses/:id", ah(async (req, res) => {
     Service.find({ businessId: b._id }).sort({ price: 1 }).lean(),
     Portfolio.find({ businessId: b._id, published: true }).sort({ createdAt: -1 }).lean(),
   ])
+  const [presented] = await presentMany([b])
   res.json({
-    business: publicBiz(b),
+    business: presented,
     services: services.map((s) => ({ id: String(s._id), name: s.name, price: s.price, durationMinutes: s.durationMinutes })),
-    works: works.map((w) => ({ id: String(w._id), title: w.title, caption: w.caption, imageUrl: w.imageUrl })),
+    works: works.map((w) => ({ id: String(w._id), title: w.title, caption: w.caption, imageUrl: w.imageUrl, tags: w.tags ?? [] })),
   })
 }))
 
@@ -57,6 +58,7 @@ r.get("/search", ah(async (req, res) => {
     city: z.enum(CITIES).optional(), category: z.enum(CATEGORIES).optional(),
     keyword: z.string().trim().max(60).optional().default(""),
     budget: z.coerce.number().positive().max(100000).optional(),
+    availableNow: z.enum(["0", "1"]).optional(),
   }), req.query)
   const biz = await listActive({ ...(q.city && { city: q.city }), ...(q.category && { category: q.category }) })
   if (!biz.length) return res.json({ results: [] })
@@ -64,10 +66,13 @@ r.get("/search", ah(async (req, res) => {
     businessId: { $in: biz.map((b) => b._id) },
     ...(q.budget && { price: { $lte: q.budget } }),
   }).sort({ price: 1 }).lean()
+  const presented = new Map((await presentMany(biz)).map((p) => [p.id, p]))
   const results = []
   for (const b of biz) {
-    const best = services.find((s) => String(s.businessId) === String(b._id) && (!q.keyword || textMatches(s.name, q.keyword)))
-    if (best) results.push({ ...publicBiz(b), service: best.name, price: best.price })
+    const p = presented.get(String(b._id))
+    if (q.availableNow === "1" && !["free", "quiet"].includes(p.live?.state)) continue
+    const best = services.find((s) => String(s.businessId) === p.id && (!q.keyword || textMatches(s.name, q.keyword)))
+    if (best) results.push({ ...p, service: best.name, price: best.price })
   }
   results.sort((a, c) => a.price - c.price)
   res.json({ results })
