@@ -3,8 +3,10 @@ import { ArrowLeft, MapPin, Search, Wallet } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { api, qs } from "@/lib/api"
 import { ANY_STYLE, CATEGORIES as categories, CITIES as cities, STYLES_BY_CATEGORY, waLink } from "@/lib/catalog"
+import LiveBadge from "@/components/profile/LiveBadge"
+import type { Live } from "@/lib/business-types"
 
-type Result = { id: string; name: string; category: string; city: string; phone: string; service: string; price: number }
+type Result = { id: string; name: string; category: string; city: string; phone: string; service: string; price: number; live: Live | null }
 
 export function SmartSearch() {
   const { t } = useTranslation()
@@ -12,6 +14,7 @@ export function SmartSearch() {
   const [category, setCategory] = useState("") // "" = all specialties
   const [style, setStyle] = useState(ANY_STYLE)
   const [budget, setBudget] = useState("")
+  const [availableNow, setAvailableNow] = useState(false)
   const [results, setResults] = useState<Result[] | null>(null)
   const [nearby, setNearby] = useState<Result[]>([])
   const [busy, setBusy] = useState(false)
@@ -25,7 +28,7 @@ export function SmartSearch() {
       // Server returns the cheapest matching service per active business, cheapest first.
       const keyword = style === ANY_STYLE ? "" : style
       const max = Number(budget) > 0 ? Number(budget) : undefined
-      const r = await api<{ results: Result[] }>(`/api/search?${qs({ city, category, keyword, budget: max })}`)
+      const r = await api<{ results: Result[] }>(`/api/search?${qs({ city, category, keyword, budget: max, availableNow: availableNow ? 1 : undefined })}`)
       setResults(r.results)
       // Nothing with these filters → suggest what exists in the same city.
       if (!r.results.length && (category || keyword || max)) {
@@ -39,7 +42,7 @@ export function SmartSearch() {
   const field = "mt-1 w-full border border-border bg-background p-3 text-sm"
   const card = (r: Result) => {
     const wa = waLink(r.phone, t("سلام، بغيت ناخد موعد عند {{name}}.", { name: r.name }))
-    return <article key={r.id} className="border border-border bg-background p-5"><p className="text-xs font-semibold text-primary">{t(r.category)}</p><h3 className="mt-1 text-2xl"><a href={`/b/${r.id}`} className="hover:text-primary">{r.name}</a></h3><p className="mt-2 flex items-center gap-1 text-sm text-muted-foreground"><MapPin size={15} />{t(r.city)}</p><p className="mt-3 flex justify-between border-t border-border pt-3 text-sm"><span>{r.service}</span><strong>{t("من")} {r.price} {t("درهماً")}</strong></p>
+    return <article key={r.id} className="border border-border bg-background p-5"><p className="text-xs font-semibold text-primary">{t(r.category)}</p><LiveBadge live={r.live} className="mt-2" /><h3 className="mt-1 text-2xl"><a href={`/b/${r.id}`} className="hover:text-primary">{r.name}</a></h3><p className="mt-2 flex items-center gap-1 text-sm text-muted-foreground"><MapPin size={15} />{t(r.city)}</p><p className="mt-3 flex justify-between border-t border-border pt-3 text-sm"><span>{r.service}</span><strong>{t("من")} {r.price} {t("درهماً")}</strong></p>
       <a href={`/b/${r.id}`} className="mt-3 me-5 inline-flex items-center gap-2 text-sm font-semibold">{t("شوف البروفايل والأعمال")}</a>
       {wa && <a href={wa} target="_blank" rel="noreferrer" className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-primary">{t("اطلب موعداً عبر واتساب")} <ArrowLeft size={16} className="rtl:rotate-0 ltr:rotate-180" /></a>}</article>
   }
@@ -53,6 +56,7 @@ export function SmartSearch() {
         <label className="text-sm">{t("التخصص")}<select value={category} onChange={(e) => { setCategory(e.target.value); setStyle(ANY_STYLE) }} className={field}><option value="">{t("كل التخصصات")}</option>{categories.map((c) => <option key={c} value={c}>{t(c)}</option>)}</select></label>
         <label className="text-sm">{t("نوع القصة أو الخدمة")}<select value={style} disabled={styles.length < 2} onChange={(e) => setStyle(e.target.value)} className={`${field} disabled:opacity-60`}>{styles.map((c) => <option key={c} value={c}>{t(c)}</option>)}</select></label>
         <label className="text-sm">{t("الثمن المقترح (درهم)")}<div className="relative"><Wallet size={16} className="pointer-events-none absolute start-3 top-1/2 mt-0.5 -translate-y-1/2 text-primary" /><input type="number" min="1" value={budget} onChange={(e) => setBudget(e.target.value)} placeholder={t("اختياري")} className={`${field} ps-9`} /></div></label>
+        <label className="flex items-center gap-2 text-sm sm:col-span-2 lg:col-span-4"><input type="checkbox" checked={availableNow} onChange={(e) => setAvailableNow(e.target.checked)} className="h-4 w-4 accent-primary" />{t("غير اللي فاضيين دابا")}</label>
         <button disabled={busy} className="inline-flex items-center justify-center gap-2 bg-primary px-5 py-3 font-semibold text-primary-foreground disabled:opacity-60 sm:col-span-2 lg:col-span-4"><Search size={18} />{busy ? t("كنقلبو...") : t("ابحث")}</button>
       </form>
       {error && <p role="status" className="mt-5 text-sm text-destructive">{t("ما قدرناش نقلبو دابا. عاود المحاولة.")}</p>}

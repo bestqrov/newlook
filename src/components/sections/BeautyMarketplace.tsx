@@ -4,6 +4,8 @@ import { useTranslation } from 'react-i18next'
 import i18n from "i18next"
 import { api, fileUrl } from "@/lib/api"
 import { normalizeText, waLink } from "@/lib/catalog"
+import LiveBadge from "@/components/profile/LiveBadge"
+import type { Live } from "@/lib/business-types"
 
 /** A catalog value (Arabic key) plus its translation in every loaded language. */
 const inAllLanguages = (key: string) => [key, ...Object.keys(i18n.options.resources ?? {}).map((lng) => i18n.getFixedT(lng)(key))]
@@ -16,6 +18,7 @@ type Business = {
   bio: string
   phone: string
   cover: string | null
+  live: Live | null
 }
 
 const categories = ["الكل", "حلاقة رجالية", "صالون نسائي", "الشعر والتصفيف", "العناية بالبشرة", "الأظافر", "الحمام والسبا", "المكياج"]
@@ -75,7 +78,7 @@ export function BeautyMarketplace() {
         const wa = waLink(business.phone, t("سلام، بغيت ناخد موعد عند {{name}}.", { name: business.name }))
         return <article key={business.id} className="group overflow-hidden border border-border bg-card transition-colors hover:border-primary">
           <img src={cover} alt={`${business.name} — ${business.category}`} className="h-56 w-full object-cover transition-transform duration-500 group-hover:scale-[1.02]" />
-          <div className="p-5"><p className="text-xs font-semibold text-primary">{t(business.category)}</p><h3 className="mt-2 text-2xl">{t(business.name)}</h3><p className="mt-2 flex items-center gap-1 text-sm text-muted-foreground"><MapPin size={15} />{business.city}</p><p className="mt-3 line-clamp-2 min-h-12 text-sm leading-6 text-muted-foreground">{business.bio}</p>
+          <div className="p-5"><p className="text-xs font-semibold text-primary">{t(business.category)}</p><LiveBadge live={business.live} className="mt-2" /><h3 className="mt-2 text-2xl">{t(business.name)}</h3><p className="mt-2 flex items-center gap-1 text-sm text-muted-foreground"><MapPin size={15} />{business.city}</p><p className="mt-3 line-clamp-2 min-h-12 text-sm leading-6 text-muted-foreground">{business.bio}</p>
             <div className="mt-4 flex flex-wrap items-center gap-4 border-t border-border pt-4 text-sm font-semibold"><a href={`/b/${business.id}`} className="hover:text-primary">{t("شوف البروفايل والأعمال")}</a>{wa && <a href={wa} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 text-primary">{t("اطلب موعداً عبر واتساب")} <ArrowLeft size={16} /></a>}</div>
           </div>
         </article>
