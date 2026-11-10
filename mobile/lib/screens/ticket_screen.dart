@@ -40,7 +40,7 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
       if (!mounted) return;
       if (st.status != 'waiting') {
         await ref.read(ticketProvider.notifier).set(null);
-        setState(() => _final = st.status == 'served' ? 'queue.served' : 'queue.left');
+        if (mounted) setState(() => _final = st.status == 'served' ? 'queue.served' : 'queue.left');
       } else {
         setState(() => _status = st);
       }

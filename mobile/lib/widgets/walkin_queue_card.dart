@@ -37,7 +37,7 @@ class _WalkinQueueCardState extends ConsumerState<WalkinQueueCard> {
       await ref.read(ticketProvider.notifier).set(ticket);
       if (mounted) context.push('/ticket');
     } catch (e) {
-      setState(() => _msg = s.error(e));
+      if (mounted) setState(() => _msg = s.error(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
