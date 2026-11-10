@@ -25,6 +25,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   Future<List<Business>> _load() => ref.read(repositoryProvider).search(city: _city, category: _category, keyword: _keyword.text, availableNow: _availableNow);
   Future<void> _reload() async {
+    if (ref.read(catalogProvider).hasError) ref.invalidate(catalogProvider);
     final f = _load();
     setState(() => _results = f);
     await f.catchError((_) => <Business>[]);
@@ -47,7 +48,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ]),
       body: RefreshIndicator(
         onRefresh: _reload,
-        child: ListView(padding: const EdgeInsets.all(16), children: [
+        child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(16), children: [
           if (ticket != null) ...[
             Card(child: ListTile(leading: const Icon(Icons.confirmation_number), title: Text(s.t('home.ticket', {'name': ticket.businessName})), trailing: const Icon(Icons.chevron_left), onTap: () => context.push('/ticket'))),
             const SizedBox(height: 12),

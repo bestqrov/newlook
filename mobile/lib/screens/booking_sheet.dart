@@ -50,6 +50,7 @@ class _BookingSheetState extends ConsumerState<BookingSheet> {
 
   void _loadSlots() {
     _slot = null;
+    _msg = '';
     // 'en' keeps Latin digits (the API rejects Arabic-Indic digits).
     _slots = _ready ? ref.read(repositoryProvider).slots(widget.business.id, _ids, DateFormat('yyyy-MM-dd', 'en').format(_days[_day]), audience: widget.needsAudience ? _audience : null) : null;
   }
@@ -61,9 +62,11 @@ class _BookingSheetState extends ConsumerState<BookingSheet> {
     setState(() { _busy = true; _msg = ''; });
     try {
       await ref.read(repositoryProvider).book(widget.business.id, serviceIds: _ids, startsAt: _slot!, name: _name.text.trim(), phone: _phone.text, audience: widget.needsAudience ? _audience : null);
+      if (!mounted) return;
       setState(() => _done = true);
     } catch (e) {
-      setState(() { _msg = s.error(e); _loadSlots(); });
+      if (!mounted) return;
+      setState(() { _loadSlots(); _msg = s.error(e); });
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -135,7 +138,7 @@ class _BookingSheetState extends ConsumerState<BookingSheet> {
               if (slots.isEmpty) return Text(s.t('book.noSlots'));
               return Wrap(spacing: 6, runSpacing: 6, children: [
                 for (final iso in slots)
-                  ChoiceChip(label: Text(DateFormat.Hm('en').format(DateTime.parse(iso).toLocal())), selected: _slot == iso, onSelected: (_) => setState(() => _slot = iso)),
+                  ChoiceChip(label: Text(DateFormat.Hm('en').format(DateTime.parse(iso).toLocal())), selected: _slot == iso, onSelected: (_) => setState(() { _slot = iso; _msg = ''; })),
               ]);
             },
           ),
