@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 import '../api/models.dart';
@@ -100,7 +101,10 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
 
     return Scaffold(
       appBar: AppBar(title: Text(b.name, overflow: TextOverflow.ellipsis)),
-      body: RefreshIndicator(
+      body: Stack(children: [
+        if (cat?.theme.background != null)
+          Positioned.fill(child: Opacity(opacity: 0.06, child: SvgPicture.network(resolveUrl(cat!.theme.background!), fit: BoxFit.cover))),
+        RefreshIndicator(
         onRefresh: _load,
         child: ListView(physics: const AlwaysScrollableScrollPhysics(), children: [
           if (cat?.theme.headerPattern != null) HeaderPattern(path: cat!.theme.headerPattern!),
@@ -150,7 +154,8 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
             const SizedBox(height: 96),
           ])),
         ]),
-      ),
+        ),
+      ]),
       bottomNavigationBar: p.services.isEmpty ? null : SafeArea(child: Padding(padding: const EdgeInsets.all(12), child: FilledButton(onPressed: () => _book(context, p, cat), child: Text(s.t('book.cta'))))),
     );
   }

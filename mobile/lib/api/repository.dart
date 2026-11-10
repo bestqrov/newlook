@@ -37,7 +37,9 @@ class Repository {
   }
 
   Future<QueueStatus> queueStatus(QueueTicket t) async => QueueStatus.fromJson(await api.get('/api/queue/${t.id}', {'token': t.token}));
-  Future<void> leaveQueue(QueueTicket t) => api.post('/api/queue/${t.id}/cancel', {'token': t.token});
+  Future<void> leaveQueue(QueueTicket t) async {
+    await api.post('/api/queue/${t.id}/cancel', {'token': t.token});
+  }
 
   // ─── Pro ───
   /// "ok", or "mfa" for admin accounts (not allowed in the app).
@@ -46,7 +48,9 @@ class Repository {
     return d['mfa'] != null ? 'mfa' : 'ok';
   }
 
-  Future<void> logout() => api.post('/api/auth/logout');
+  Future<void> logout() async {
+    await api.post('/api/auth/logout');
+  }
   Future<bool> signedIn() async => (await api.get('/api/auth/me'))['user'] != null;
 
   Future<ProBusiness?> myBusiness() async {
@@ -60,9 +64,15 @@ class Repository {
   }
 
   Future<List<QueueEntry>> myQueue() async => ((await api.get('/api/me/queue'))['entries'] as List? ?? []).whereType<Map<String, dynamic>>().map(QueueEntry.fromJson).toList();
-  Future<void> serve(String id) => api.post('/api/me/queue/$id/serve');
-  Future<void> noShow(String id) => api.post('/api/me/queue/$id/no-show');
+  Future<void> serve(String id) async {
+    await api.post('/api/me/queue/$id/serve');
+  }
+  Future<void> noShow(String id) async {
+    await api.post('/api/me/queue/$id/no-show');
+  }
 
   Future<List<ProBooking>> myBookings() async => ((await api.get('/api/me/bookings'))['bookings'] as List? ?? []).whereType<Map<String, dynamic>>().map(ProBooking.fromJson).toList();
-  Future<void> setBookingStatus(String id, String status) => api.patch('/api/me/bookings/$id', {'status': status});
+  Future<void> setBookingStatus(String id, String status) async {
+    await api.patch('/api/me/bookings/$id', {'status': status});
+  }
 }

@@ -54,7 +54,11 @@ class _TicketScreenState extends ConsumerState<TicketScreen> {
 
   Future<void> _leave() async {
     final ticket = ref.read(ticketProvider);
-    if (ticket != null) await ref.read(repositoryProvider).leaveQueue(ticket).catchError((_) {});
+    if (ticket != null) {
+      try {
+        await ref.read(repositoryProvider).leaveQueue(ticket);
+      } catch (_) {/* clear locally anyway */}
+    }
     await ref.read(ticketProvider.notifier).set(null);
     if (mounted) setState(() => _final = 'queue.left');
   }

@@ -45,11 +45,19 @@ class _ProScreenState extends ConsumerState<ProScreen> {
 
   Future<void> _check() async {
     final repo = ref.read(repositoryProvider);
+    final wasSignedIn = _signedIn;
+    final attempted = !_loading;
     try {
       _signedIn = await repo.signedIn();
       _business = _signedIn ? await repo.myBusiness() : null;
-    } catch (_) {
-      _signedIn = false;
+    } catch (e) {
+      if (attempted) {
+        // after a login attempt: keep state, surface the error
+        _signedIn = wasSignedIn;
+        if (mounted) setState(() => _msg = S.of(context).error(e));
+      } else {
+        _signedIn = false;
+      }
     }
     if (mounted) setState(() => _loading = false);
   }
@@ -75,7 +83,9 @@ class _ProScreenState extends ConsumerState<ProScreen> {
     if (_loggingOut) return;
     _loggingOut = true;
     try {
-      await ref.read(repositoryProvider).logout().catchError((_) {});
+      try {
+        await ref.read(repositoryProvider).logout();
+      } catch (_) {/* log out locally anyway */}
       if (mounted) setState(() { _signedIn = false; _business = null; });
     } finally {
       _loggingOut = false;
@@ -121,6 +131,7 @@ class _ProDashboardState extends ConsumerState<_ProDashboard> {
   List<QueueEntry> _queue = const [];
   List<ProBooking> _bookings = const [];
   String _msg = '';
+  bool _busy = false;
   Timer? _timer;
 
   @override
@@ -150,6 +161,17 @@ class _ProDashboardState extends ConsumerState<_ProDashboard> {
     } catch (_) {/* catalog failure tolerated */}
     if (!mounted) return;
     try {
+      final biz = await repo.myBusiness();
+      if (!mounted) return;
+      if (biz != null) setState(() => _live = biz.live);
+    } on ApiException catch (e) {
+      if (e.status == 401) {
+        _logout();
+        return;
+      }
+    } catch (_) {/* keep last status */}
+    if (!mounted) return;
+    try {
       final bookings = await repo.myBookings();
       if (!mounted) return;
       setState(() {
@@ -173,6 +195,8 @@ class _ProDashboardState extends ConsumerState<_ProDashboard> {
   }
 
   Future<void> _run(Future<void> Function() action) async {
+    if (_busy) return;
+    setState(() => _busy = true);
     try {
       await action();
       if (mounted) setState(() => _msg = '');
@@ -186,6 +210,7 @@ class _ProDashboardState extends ConsumerState<_ProDashboard> {
       if (mounted) setState(() => _msg = S.of(context).error(e));
     }
     if (!mounted) return;
+    setState(() => _busy = false);
     await _refresh();
   }
 
@@ -212,8 +237,8 @@ class _ProDashboardState extends ConsumerState<_ProDashboard> {
           GridView.count(crossAxisCount: 2, shrinkWrap: true, physics: const NeverScrollableScrollPhysics(), childAspectRatio: 2.6, mainAxisSpacing: 8, crossAxisSpacing: 8, children: [
             for (final st in states)
               _live?.state == st
-                  ? FilledButton(onPressed: () => _setLive(st), child: Text(s.t('state.$st'), style: const TextStyle(fontSize: 18)))
-                  : OutlinedButton(onPressed: () => _setLive(st), child: Text(s.t('state.$st'), style: const TextStyle(fontSize: 18))),
+                  ? FilledButton(onPressed: _busy ? null : () => _setLive(st), child: Text(s.t('state.$st'), style: const TextStyle(fontSize: 18)))
+                  : OutlinedButton(onPressed: _busy ? null : () => _setLive(st), child: Text(s.t('state.$st'), style: const TextStyle(fontSize: 18))),
           ]),
           const SizedBox(height: 24),
         ],
@@ -226,8 +251,8 @@ class _ProDashboardState extends ConsumerState<_ProDashboard> {
               title: Text(e.name),
               subtitle: Text('${e.phone} · ${DateFormat.Hm('en').format(e.createdAt)}'),
               trailing: Wrap(spacing: 4, children: [
-                FilledButton(onPressed: () => _run(() => repo.serve(e.id)), child: Text(s.t('pro.served'))),
-                OutlinedButton(onPressed: () => _run(() => repo.noShow(e.id)), child: Text(s.t('pro.noShow'))),
+                FilledButton(onPressed: _busy ? null : () => _run(() => repo.serve(e.id)), child: Text(s.t('pro.served'))),
+                OutlinedButton(onPressed: _busy ? null : () => _run(() => repo.noShow(e.id)), child: Text(s.t('pro.noShow'))),
               ]),
             )),
           const SizedBox(height: 24),
@@ -240,9 +265,9 @@ class _ProDashboardState extends ConsumerState<_ProDashboard> {
             Text('${b.serviceName} · ${formatPrice(b.price)} ${s.t('common.mad')} · ${time.format(b.startsAt)}'),
             InkWell(onTap: () => launchUrl(Uri(scheme: 'tel', path: b.clientPhone)), child: Text(b.clientPhone, style: TextStyle(color: theme.colorScheme.primary))),
             Wrap(spacing: 8, children: [
-              if (b.status == 'pending') FilledButton(onPressed: () => _run(() => repo.setBookingStatus(b.id, 'confirmed')), child: Text(s.t('pro.confirm'))),
-              if (b.status == 'confirmed') OutlinedButton(onPressed: () => _run(() => repo.setBookingStatus(b.id, 'done')), child: Text(s.t('pro.done'))),
-              TextButton(onPressed: () => _run(() => repo.setBookingStatus(b.id, 'cancelled')), child: Text(s.t('pro.cancel'))),
+              if (b.status == 'pending') FilledButton(onPressed: _busy ? null : () => _run(() => repo.setBookingStatus(b.id, 'confirmed')), child: Text(s.t('pro.confirm'))),
+              if (b.status == 'confirmed') OutlinedButton(onPressed: _busy ? null : () => _run(() => repo.setBookingStatus(b.id, 'done')), child: Text(s.t('pro.done'))),
+              TextButton(onPressed: _busy ? null : () => _run(() => repo.setBookingStatus(b.id, 'cancelled')), child: Text(s.t('pro.cancel'))),
             ]),
           ]))),
         const SizedBox(height: 24),

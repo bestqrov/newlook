@@ -50,7 +50,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         onRefresh: _reload,
         child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(16), children: [
           if (ticket != null) ...[
-            Card(child: ListTile(leading: const Icon(Icons.confirmation_number), title: Text(s.t('home.ticket', {'name': ticket.businessName})), trailing: const Icon(Icons.chevron_left), onTap: () => context.push('/ticket'))),
+            Card(child: ListTile(leading: const Icon(Icons.confirmation_number), title: Text(s.t('home.ticket', {'name': ticket.businessName})), trailing: const Icon(Icons.chevron_right), onTap: () => context.push('/ticket'))),
             const SizedBox(height: 12),
           ],
           TextField(controller: _keyword, textInputAction: TextInputAction.search, onSubmitted: (_) => _reload(), decoration: InputDecoration(hintText: s.t('home.search'), prefixIcon: const Icon(Icons.search))),
