@@ -9,3 +9,5 @@ server/.env
 server/.env.*
 !**/.env.example
 *.log
+mobile
+docs
