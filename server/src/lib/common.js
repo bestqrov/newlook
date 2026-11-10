@@ -28,6 +28,23 @@ export function requireId(v) {
   return v
 }
 
+// ─── Text search ────────────────────────────────────────────────────
+/** Loose Arabic/Latin matching: ignores case, diacritics, hamza forms, ة/ه, ى/ي and the "ال" article. */
+export function normalizeText(s) {
+  return String(s || "").toLowerCase()
+    .normalize("NFD").replace(/[̀-ًͯ-ٰٟـ]/g, "")
+    .replace(/[أإآٱ]/g, "ا").replace(/ة/g, "ه").replace(/ى/g, "ي").replace(/ؤ/g, "و").replace(/ئ/g, "ي")
+    .replace(/(^|\s)ال/g, "$1")
+    .replace(/\s+/g, " ").trim()
+}
+
+/** True when every word of `query` appears in `text` (after normalisation). */
+export function textMatches(text, query) {
+  const words = normalizeText(query).split(" ").filter(Boolean)
+  const hay = normalizeText(text)
+  return words.every((w) => hay.includes(w))
+}
+
 // ─── Phones (Morocco) ───────────────────────────────────────────────
 /** Returns "0XXXXXXXXX" or null. Accepts 06…, +2126…, 002126…, with spaces/dashes. */
 export function normalizePhone(raw) {

@@ -1,8 +1,12 @@
 import { useEffect, useMemo, useState } from "react"
 import { ArrowLeft, MapPin, Search } from "lucide-react"
 import { useTranslation } from 'react-i18next'
+import i18n from "i18next"
 import { api, fileUrl } from "@/lib/api"
-import { waLink } from "@/lib/catalog"
+import { normalizeText, waLink } from "@/lib/catalog"
+
+/** A catalog value (Arabic key) plus its translation in every loaded language. */
+const inAllLanguages = (key: string) => [key, ...Object.keys(i18n.options.resources ?? {}).map((lng) => i18n.getFixedT(lng)(key))]
 
 type Business = {
   id: string
@@ -42,7 +46,10 @@ export function BeautyMarketplace() {
 
   const visible = useMemo(() => businesses.filter((business) => {
     const matchesCategory = category === "الكل" || business.category === category
-    const matchesSearch = `${business.name} ${business.city} ${business.category}`.toLowerCase().includes(query.trim().toLowerCase())
+    // City and specialty are matched in every site language (مراكش = Marrakech).
+    const words = normalizeText(query).split(" ").filter(Boolean)
+    const hay = normalizeText([business.name, business.bio, ...[business.city, business.category].flatMap(inAllLanguages)].join(" "))
+    const matchesSearch = words.every((w) => hay.includes(w))
     return matchesCategory && matchesSearch
   }), [businesses, category, query])
 

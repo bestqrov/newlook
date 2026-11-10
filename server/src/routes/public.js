@@ -5,7 +5,7 @@ import { DateTime } from "luxon"
 import { Booking, Business, Plan, Portfolio, Service, Setting } from "../models.js"
 import {
   CATEGORIES, CITIES, HttpError, activeBusinessIds, ah, badRequest, businessIsActive,
-  computeSlots, conflict, normalizePhone, notFound, parse, requireId, withLock,
+  computeSlots, conflict, normalizePhone, notFound, parse, requireId, textMatches, withLock,
 } from "../lib/common.js"
 import { requireAuth } from "../lib/auth.js"
 import { config } from "../config.js"
@@ -51,22 +51,22 @@ r.get("/businesses/:id", ah(async (req, res) => {
 }))
 
 // GET /api/search?city=&category=&keyword=&budget=  → cheapest matching service per business, cheapest first
+// city and category are optional ("" or missing = all).
 r.get("/search", ah(async (req, res) => {
   const q = parse(z.object({
-    city: z.enum(CITIES), category: z.enum(CATEGORIES),
+    city: z.enum(CITIES).optional(), category: z.enum(CATEGORIES).optional(),
     keyword: z.string().trim().max(60).optional().default(""),
     budget: z.coerce.number().positive().max(100000).optional(),
   }), req.query)
-  const biz = await listActive({ city: q.city, category: q.category })
+  const biz = await listActive({ ...(q.city && { city: q.city }), ...(q.category && { category: q.category }) })
   if (!biz.length) return res.json({ results: [] })
   const services = await Service.find({
     businessId: { $in: biz.map((b) => b._id) },
     ...(q.budget && { price: { $lte: q.budget } }),
   }).sort({ price: 1 }).lean()
-  const kw = q.keyword.toLowerCase()
   const results = []
   for (const b of biz) {
-    const best = services.find((s) => String(s.businessId) === String(b._id) && (!kw || s.name.toLowerCase().includes(kw)))
+    const best = services.find((s) => String(s.businessId) === String(b._id) && (!q.keyword || textMatches(s.name, q.keyword)))
     if (best) results.push({ ...publicBiz(b), service: best.name, price: best.price })
   }
   results.sort((a, c) => a.price - c.price)
