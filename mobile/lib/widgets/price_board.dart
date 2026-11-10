@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../api/models.dart';
 import '../l10n/strings.dart';
 import '../theme/category_theme.dart';
+import '../util/format.dart';
 
 /// Price list: chalkboard (barber), menu (most), tiles (nails).
 class PriceBoard extends StatelessWidget {
@@ -10,8 +11,6 @@ class PriceBoard extends StatelessWidget {
   final List<Service> services;
   final String variant;
   final String? accentFont;
-
-  String _price(num p) => p == p.roundToDouble() ? p.toInt().toString() : p.toString();
 
   @override
   Widget build(BuildContext context) {
@@ -36,7 +35,7 @@ class PriceBoard extends StatelessWidget {
                   const SizedBox(width: 6),
                   const Expanded(child: Text('· · · · · · · · · · · · · · · · · · · · · ·', maxLines: 1, overflow: TextOverflow.clip, style: TextStyle(color: Color(0x88F1EFE6)))),
                   const SizedBox(width: 6),
-                  Text('${_price(sv.price)} ${s.t('common.mad')}', style: accent?.copyWith(fontWeight: FontWeight.bold)),
+                  Text('${formatPrice(sv.price)} ${s.t('common.mad')}', style: accent?.copyWith(fontWeight: FontWeight.bold)),
                 ]),
                 Text('${sv.durationMinutes} ${s.t('common.min')}', style: const TextStyle(color: Color(0xAAF1EFE6), fontSize: 12)),
               ]),
@@ -52,7 +51,7 @@ class PriceBoard extends StatelessWidget {
           for (final sv in services)
             Card(child: Padding(padding: const EdgeInsets.all(10), child: Column(mainAxisAlignment: MainAxisAlignment.center, children: [
               Text(sv.name, textAlign: TextAlign.center, style: const TextStyle(fontWeight: FontWeight.w600)),
-              Text(_price(sv.price), style: theme.textTheme.headlineSmall?.copyWith(color: theme.colorScheme.primary)),
+              Text(formatPrice(sv.price), style: theme.textTheme.headlineSmall?.copyWith(color: theme.colorScheme.primary)),
               Text('${s.t('common.mad')} · ${sv.durationMinutes} ${s.t('common.min')}', style: theme.textTheme.bodySmall),
             ]))),
         ],
@@ -64,7 +63,7 @@ class PriceBoard extends StatelessWidget {
         ListTile(
           title: Text(sv.name, style: const TextStyle(fontWeight: FontWeight.w600)),
           subtitle: Text('${sv.durationMinutes} ${s.t('common.min')}'),
-          trailing: Text('${_price(sv.price)} ${s.t('common.mad')}', style: const TextStyle(fontWeight: FontWeight.bold)),
+          trailing: Text('${formatPrice(sv.price)} ${s.t('common.mad')}', style: const TextStyle(fontWeight: FontWeight.bold)),
         ),
       ],
     ]));

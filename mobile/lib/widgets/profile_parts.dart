@@ -4,6 +4,7 @@ import 'package:flutter_svg/flutter_svg.dart';
 import '../api/models.dart';
 import '../config.dart';
 import '../l10n/strings.dart';
+import '../util/format.dart';
 
 /// Category pattern (e.g. barber pole) repeated across the width, 12 px high.
 class HeaderPattern extends StatelessWidget {
@@ -73,8 +74,27 @@ class RitualBuilder extends StatefulWidget {
 }
 
 class _RitualBuilderState extends State<RitualBuilder> {
-  late final List<Service> steps = [for (final id in widget.ritualSteps) ...widget.services.where((s) => s.id == id)];
-  late final Set<String> picked = {if (steps.isNotEmpty) steps.first.id};
+  late List<Service> steps;
+  late final Set<String> picked;
+
+  List<Service> _computeSteps() => [for (final id in widget.ritualSteps) ...widget.services.where((s) => s.id == id)];
+
+  @override
+  void initState() {
+    super.initState();
+    steps = _computeSteps();
+    picked = {if (steps.isNotEmpty) steps.first.id};
+  }
+
+  @override
+  void didUpdateWidget(covariant RitualBuilder old) {
+    super.didUpdateWidget(old);
+    if (old.services != widget.services || old.ritualSteps != widget.ritualSteps) {
+      steps = _computeSteps();
+      final ids = steps.map((x) => x.id).toSet();
+      picked.removeWhere((id) => !ids.contains(id));
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -90,10 +110,10 @@ class _RitualBuilderState extends State<RitualBuilder> {
           value: picked.contains(x.id),
           onChanged: (v) => setState(() => v == true ? picked.add(x.id) : picked.remove(x.id)),
           title: Text('${i + 1}. ${x.name}'),
-          subtitle: Text('${x.durationMinutes} ${s.t('common.min')} · ${x.price} ${s.t('common.mad')}'),
+          subtitle: Text('${x.durationMinutes} ${s.t('common.min')} · ${formatPrice(x.price)} ${s.t('common.mad')}'),
           controlAffinity: ListTileControlAffinity.leading,
         ),
-      Text(s.t('ritual.total', {'n': chosen.length, 'm': minutes, 'p': price})),
+      Text(s.t('ritual.total', {'n': chosen.length, 'm': minutes, 'p': formatPrice(price)})),
       const SizedBox(height: 8),
       FilledButton(onPressed: chosen.isEmpty ? null : () => widget.onChoose(chosen.map((x) => x.id).toList()), child: Text(s.t('ritual.pick'))),
     ])));
