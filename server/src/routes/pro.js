@@ -1,7 +1,7 @@
 import { Router } from "express"
 import { z } from "zod"
 import { DateTime } from "luxon"
-import rateLimit from "express-rate-limit"
+import { limiter } from "../lib/limits.js"
 import { config } from "../config.js"
 import { Booking, Business, Offer, Payment, Plan, Portfolio, Service, Subscription } from "../models.js"
 import {
@@ -14,7 +14,7 @@ import { PRIVATE_DIR, PUBLIC_DIR, removeUpload, saveUpload, upload } from "../li
 const r = Router()
 r.use(requireAuth)
 
-const uploadLimiter = rateLimit({ windowMs: 60 * 60_000, limit: 30, standardHeaders: "draft-7", legacyHeaders: false })
+const uploadLimiter = limiter(60 * 60_000, 30)
 
 async function myBusiness(req, { required = true } = {}) {
   const b = await Business.findOne({ userId: req.user._id })

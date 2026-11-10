@@ -1,6 +1,6 @@
 import { Router } from "express"
 import { z } from "zod"
-import rateLimit from "express-rate-limit"
+import { limiter } from "../lib/limits.js"
 import { Offer } from "../models.js"
 import { CATEGORIES, CITIES, HttpError, ah, badRequest, conflict, parse, requireId } from "../lib/common.js"
 import { requireAuth } from "../lib/auth.js"
@@ -18,7 +18,7 @@ r.get("/mine", ah(async (req, res) => {
   res.json({ offers: list.map(out) })
 }))
 
-const createLimiter = rateLimit({ windowMs: 60 * 60_000, limit: 10, standardHeaders: "draft-7", legacyHeaders: false })
+const createLimiter = limiter(60 * 60_000, 10)
 
 r.post("/", createLimiter, ah(async (req, res) => {
   const body = parse(z.object({

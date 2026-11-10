@@ -2,7 +2,7 @@ import { Router } from "express"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
 import { authenticator } from "otplib"
-import rateLimit from "express-rate-limit"
+import { limiter } from "../lib/limits.js"
 import { User } from "../models.js"
 import { HttpError, ah, parse } from "../lib/common.js"
 import { clearSession, publicUser, readMfaPending, setMfaPending, setSession } from "../lib/auth.js"
@@ -10,7 +10,7 @@ import { clearSession, publicUser, readMfaPending, setMfaPending, setSession } f
 const r = Router()
 authenticator.options = { window: 1 }
 
-const authLimiter = rateLimit({ windowMs: 15 * 60_000, limit: 20, standardHeaders: "draft-7", legacyHeaders: false })
+const authLimiter = limiter(15 * 60_000, 20)
 const MAX_FAILS = 5
 const LOCK_MS = 15 * 60_000
 // Used to keep timing equal when the e-mail does not exist.

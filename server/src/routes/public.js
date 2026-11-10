@@ -1,6 +1,6 @@
 import { Router } from "express"
 import { z } from "zod"
-import rateLimit from "express-rate-limit"
+import { limiter } from "../lib/limits.js"
 import { DateTime } from "luxon"
 import { Booking, Business, Plan, Portfolio, Service, Setting } from "../models.js"
 import {
@@ -84,7 +84,7 @@ r.get("/businesses/:id/slots", ah(async (req, res) => {
   res.json({ slots: await computeSlots(b, s, q.day) })
 }))
 
-const bookingLimiter = rateLimit({ windowMs: 60 * 60_000, limit: 6, standardHeaders: "draft-7", legacyHeaders: false })
+const bookingLimiter = limiter(60 * 60_000, 6)
 
 // POST /api/businesses/:id/bookings
 r.post("/businesses/:id/bookings", bookingLimiter, ah(async (req, res) => {
