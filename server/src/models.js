@@ -59,7 +59,7 @@ const PortfolioSchema = new Schema({
   title: { type: String, required: true, maxlength: 100 },
   caption: { type: String, default: "", maxlength: 300 },
   imageUrl: { type: String, required: true },
-  filePath: { type: String, required: true },
+  filePath: { type: String, default: "" }, // "" = bundled site image (imported demo data), nothing to delete
   published: { type: Boolean, default: true },
 }, opts)
 

@@ -8,7 +8,8 @@
     "start": "node src/index.js",
     "dev": "node --watch src/index.js",
     "create-admin": "node scripts/create-admin.js",
-    "seed-plans": "node scripts/seed-plans.js"
+    "seed-plans": "node scripts/seed-plans.js",
+    "import-legacy": "node scripts/import-legacy.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",

@@ -1,0 +1,300 @@
+{
+  "source": "Old Chantan/Supabase export (public data only)",
+  "exportedAt": "2026-11-10T12:24:11.008Z",
+  "plans": [
+    {
+      "code": "monthly",
+      "name": "شهري",
+      "months": 1,
+      "price": 99,
+      "active": true
+    },
+    {
+      "code": "quarterly",
+      "name": "ربع سنوي",
+      "months": 3,
+      "price": 249,
+      "active": true
+    },
+    {
+      "code": "semiannual",
+      "name": "نصف سنوي",
+      "months": 6,
+      "price": 449,
+      "active": true
+    },
+    {
+      "code": "annual",
+      "name": "سنوي",
+      "months": 12,
+      "price": 799,
+      "active": true
+    }
+  ],
+  "businesses": [
+    {
+      "legacyId": "00000000-0000-4000-9000-000000000001",
+      "name": "[تجريبي] أمين الحلاق",
+      "category": "حلاقة رجالية",
+      "city": "الدار البيضاء",
+      "bio": "حلاق عصري متخصص فالفيد والتحديد. بيانات تجريبية.",
+      "phone": "0600000001",
+      "published": true,
+      "services": [
+        {
+          "name": "قصة فيد",
+          "price": 60,
+          "durationMinutes": 30
+        },
+        {
+          "name": "تحديد اللحية",
+          "price": 40,
+          "durationMinutes": 20
+        },
+        {
+          "name": "قصة كلاسيكية",
+          "price": 50,
+          "durationMinutes": 30
+        }
+      ],
+      "works": [
+        {
+          "title": "فيد نظيف",
+          "caption": "عمل تجريبي",
+          "imageUrl": "/assets/work-clean-fade.webp",
+          "published": true
+        },
+        {
+          "title": "قصة كلاسيكية",
+          "caption": "عمل تجريبي",
+          "imageUrl": "/assets/work-classic-cut.webp",
+          "published": true
+        },
+        {
+          "title": "تشكيل اللحية",
+          "caption": "عمل تجريبي",
+          "imageUrl": "/assets/work-beard-shaping.webp",
+          "published": true
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 1,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 2,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 3,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 4,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 5,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 6,
+          "start": "09:00",
+          "end": "18:00"
+        }
+      ]
+    },
+    {
+      "legacyId": "00000000-0000-4000-9000-000000000002",
+      "name": "[تجريبي] صالون سلمى",
+      "category": "صالون نسائي",
+      "city": "الرباط",
+      "bio": "صالون نسائي للشعر والصبغة والسيشوار. بيانات تجريبية.",
+      "phone": "0600000002",
+      "published": true,
+      "services": [
+        {
+          "name": "سيشوار",
+          "price": 80,
+          "durationMinutes": 45
+        },
+        {
+          "name": "صبغة",
+          "price": 250,
+          "durationMinutes": 90
+        }
+      ],
+      "works": [
+        {
+          "title": "شعر طبيعي",
+          "caption": "عمل تجريبي",
+          "imageUrl": "/assets/work-natural-texture.webp",
+          "published": true
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 1,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 2,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 3,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 4,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 5,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 6,
+          "start": "09:00",
+          "end": "18:00"
+        }
+      ]
+    },
+    {
+      "legacyId": "00000000-0000-4000-9000-000000000003",
+      "name": "[تجريبي] حمام الورد",
+      "category": "الحمام والسبا",
+      "city": "مراكش",
+      "bio": "حمام مغربي تقليدي وسبا للاسترخاء. بيانات تجريبية.",
+      "phone": "0600000003",
+      "published": true,
+      "services": [
+        {
+          "name": "حمام مغربي وكوميرة",
+          "price": 150,
+          "durationMinutes": 60
+        }
+      ],
+      "works": [],
+      "hours": [
+        {
+          "weekday": 0,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 1,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 2,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 3,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 4,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 5,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 6,
+          "start": "09:00",
+          "end": "18:00"
+        }
+      ]
+    },
+    {
+      "legacyId": "00000000-0000-4000-9000-000000000004",
+      "name": "[تجريبي] لمسة الأظافر",
+      "category": "الأظافر",
+      "city": "طنجة",
+      "bio": "استوديو مانيكير وبيديكير. بيانات تجريبية.",
+      "phone": "0600000004",
+      "published": true,
+      "services": [
+        {
+          "name": "مانيكير",
+          "price": 90,
+          "durationMinutes": 45
+        }
+      ],
+      "works": [
+        {
+          "title": "استوديو الأظافر",
+          "caption": "عمل تجريبي",
+          "imageUrl": "/assets/beauty-nails-studio.webp",
+          "published": true
+        }
+      ],
+      "hours": [
+        {
+          "weekday": 0,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 1,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 2,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 3,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 4,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 5,
+          "start": "09:00",
+          "end": "18:00"
+        },
+        {
+          "weekday": 6,
+          "start": "09:00",
+          "end": "18:00"
+        }
+      ]
+    }
+  ]
+}
