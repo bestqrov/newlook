@@ -28,6 +28,7 @@ class _ProScreenState extends ConsumerState<ProScreen> {
   final _password = TextEditingController();
   String _msg = '';
   bool _busy = false;
+  bool _loggingOut = false;
 
   @override
   void initState() {
@@ -59,20 +60,26 @@ class _ProScreenState extends ConsumerState<ProScreen> {
     try {
       final r = await ref.read(repositoryProvider).login(_email.text, _password.text);
       if (r == 'mfa') {
-        setState(() => _msg = s.t('pro.mfa'));
+        if (mounted) setState(() => _msg = s.t('pro.mfa'));
       } else {
         await _check();
       }
     } catch (e) {
-      setState(() => _msg = s.error(e));
+      if (mounted) setState(() => _msg = s.error(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
   }
 
   Future<void> _logout() async {
-    await ref.read(repositoryProvider).logout().catchError((_) {});
-    if (mounted) setState(() { _signedIn = false; _business = null; });
+    if (_loggingOut) return;
+    _loggingOut = true;
+    try {
+      await ref.read(repositoryProvider).logout().catchError((_) {});
+      if (mounted) setState(() { _signedIn = false; _business = null; });
+    } finally {
+      _loggingOut = false;
+    }
   }
 
   @override
@@ -131,34 +138,54 @@ class _ProDashboardState extends ConsumerState<_ProDashboard> {
 
   bool get _hasQueue => ref.read(catalogProvider).valueOrNull?.categoryOf(widget.business.category).has('walkin_queue') ?? false;
 
+  Future<void> _logout() async {
+    _timer?.cancel();
+    await widget.onLogout();
+  }
+
   Future<void> _refresh() async {
     final repo = ref.read(repositoryProvider);
     try {
-      final results = await Future.wait([repo.myBookings(), if (_hasQueue) repo.myQueue()]);
+      await ref.read(catalogProvider.future);
+    } catch (_) {/* catalog failure tolerated */}
+    if (!mounted) return;
+    try {
+      final bookings = await repo.myBookings();
       if (!mounted) return;
       setState(() {
         final cutoff = DateTime.now().subtract(const Duration(hours: 12));
-        _bookings = (results[0] as List<ProBooking>).where((b) => b.startsAt.isAfter(cutoff) && (b.status == 'pending' || b.status == 'confirmed')).toList();
-        if (results.length > 1) _queue = results[1] as List<QueueEntry>;
+        _bookings = bookings.where((b) => b.startsAt.isAfter(cutoff) && (b.status == 'pending' || b.status == 'confirmed')).toList();
       });
     } on ApiException catch (e) {
-      if (e.status == 401) widget.onLogout();
+      if (e.status == 401) {
+        _logout();
+        return;
+      }
+    } catch (_) {/* keep last data; retry next tick */}
+    if (!mounted || !_hasQueue) return;
+    try {
+      final queue = await repo.myQueue();
+      if (!mounted) return;
+      setState(() => _queue = queue);
+    } on ApiException catch (e) {
+      if (e.status == 401) _logout();
     } catch (_) {/* keep last data; retry next tick */}
   }
 
   Future<void> _run(Future<void> Function() action) async {
     try {
       await action();
-      setState(() => _msg = '');
+      if (mounted) setState(() => _msg = '');
     } on ApiException catch (e) {
       if (e.status == 401) {
-        widget.onLogout();
+        _logout();
         return;
       }
       if (mounted) setState(() => _msg = S.of(context).error(e));
     } catch (e) {
       if (mounted) setState(() => _msg = S.of(context).error(e));
     }
+    if (!mounted) return;
     await _refresh();
   }
 
@@ -176,7 +203,7 @@ class _ProDashboardState extends ConsumerState<_ProDashboard> {
     final states = cat?.liveStates ?? const <String>[];
     final time = DateFormat('dd/MM HH:mm', 'en');
     return Scaffold(
-      appBar: AppBar(title: Text(widget.business.name), actions: [IconButton(onPressed: widget.onLogout, icon: const Icon(Icons.logout), tooltip: s.t('pro.logout'))]),
+      appBar: AppBar(title: Text(widget.business.name), actions: [IconButton(onPressed: _logout, icon: const Icon(Icons.logout), tooltip: s.t('pro.logout'))]),
       body: RefreshIndicator(onRefresh: _refresh, child: ListView(physics: const AlwaysScrollableScrollPhysics(), padding: const EdgeInsets.all(16), children: [
         if (_msg.isNotEmpty) Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(_msg, style: TextStyle(color: theme.colorScheme.error))),
         if (states.isNotEmpty) ...[
