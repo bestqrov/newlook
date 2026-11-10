@@ -11,3 +11,9 @@ server/node_modules/
 server/.env
 *.tsbuildinfo
 .DS_Store
+
+# Flutter app
+mobile/build/
+mobile/.dart_tool/
+mobile/android/key.properties
+mobile/android/*.jks
