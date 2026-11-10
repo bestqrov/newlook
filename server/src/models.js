@@ -44,7 +44,22 @@ const BusinessSchema = new Schema({
   phone: { type: String, default: "" },
   published: { type: Boolean, default: false },
   hours: { type: [HourSchema], default: [] },
-}, opts)
+  address: {
+    line: { type: String, default: "", maxlength: 200 },
+    district: { type: String, default: "", maxlength: 80 },
+    lat: { type: Number, default: null },
+    lng: { type: Number, default: null },
+  },
+  amenities: { type: [String], default: [] },
+  // Category-specific settings, validated by lib/extras.js (chairs, genderSchedule, ritualSteps, bringList).
+  extras: { type: Schema.Types.Mixed, default: () => ({}) },
+  // Manual live status set by the pro (see lib/schedule.js computeLive).
+  live: {
+    state: { type: String, default: null },
+    waiting: { type: Number, default: 0 },
+    updatedAt: { type: Date, default: null },
+  },
+}, { ...opts, minimize: false })
 BusinessSchema.index({ published: 1, city: 1, category: 1 })
 
 const ServiceSchema = new Schema({
@@ -61,6 +76,7 @@ const PortfolioSchema = new Schema({
   imageUrl: { type: String, required: true },
   filePath: { type: String, default: "" }, // "" = bundled site image (imported demo data), nothing to delete
   published: { type: Boolean, default: true },
+  tags: { type: [String], default: [] },
 }, opts)
 
 const BookingSchema = new Schema({
@@ -73,6 +89,11 @@ const BookingSchema = new Schema({
   clientName: { type: String, required: true, maxlength: 80 },
   clientPhone: { type: String, required: true },
   status: { type: String, enum: ["pending", "confirmed", "cancelled", "done"], default: "pending" },
+  items: {
+    type: [{ serviceId: { type: ObjectId, ref: "Service" }, name: String, price: Number, durationMinutes: Number, _id: false }],
+    default: [],
+  },
+  audience: { type: String, enum: ["women", "men"], default: undefined },
 }, opts)
 BookingSchema.index({ businessId: 1, startsAt: 1 })
 BookingSchema.index({ clientPhone: 1, startsAt: 1 })
@@ -131,6 +152,17 @@ const AuditSchema = new Schema({
   meta: { type: Schema.Types.Mixed, default: {} },
 }, { timestamps: { createdAt: true, updatedAt: false }, toJSON })
 
+const QueueEntrySchema = new Schema({
+  businessId: { type: ObjectId, ref: "Business", required: true },
+  name: { type: String, required: true, maxlength: 80 },
+  phone: { type: String, required: true },
+  status: { type: String, enum: ["waiting", "served", "no_show", "cancelled"], default: "waiting" },
+  calledAt: { type: Date, default: null },
+  tokenHash: { type: String, required: true, select: false },
+}, opts)
+QueueEntrySchema.index({ businessId: 1, status: 1, createdAt: 1 })
+QueueEntrySchema.index({ phone: 1, status: 1 })
+
 // Short-lived mutex documents (per-business booking lock).
 const LockSchema = new Schema({
   _id: { type: String },
@@ -150,5 +182,6 @@ export const Payment = model("Payment", PaymentSchema)
 export const Setting = model("Setting", SettingSchema)
 export const Audit = model("Audit", AuditSchema)
 export const Lock = model("Lock", LockSchema)
+export const QueueEntry = model("QueueEntry", QueueEntrySchema)
 
 export const isObjectId = (v) => typeof v === "string" && Types.ObjectId.isValid(v) && String(new Types.ObjectId(v)) === v
