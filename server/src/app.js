@@ -15,6 +15,7 @@ import publicRoutes from "./routes/public.js"
 import proRoutes from "./routes/pro.js"
 import offerRoutes from "./routes/offers.js"
 import adminRoutes from "./routes/admin.js"
+import catalogRoutes from "./routes/catalog.js"
 
 export function createApp() {
   const app = express()
@@ -58,6 +59,7 @@ export function createApp() {
   app.use("/api/me", proRoutes)
   app.use("/api/offers", offerRoutes)
   app.use("/api/admin", adminRoutes)
+  app.use("/api", catalogRoutes)
   app.use("/api", publicRoutes)
   app.use("/api", (_req, _res, next) => next(new HttpError(404, "not_found")))
 
