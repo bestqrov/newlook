@@ -23,7 +23,10 @@ class TicketNotifier extends StateNotifier<QueueTicket?> {
     final raw = p.getString(storageKey);
     if (raw == null) return null;
     try {
-      return QueueTicket.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      final t = QueueTicket.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+      bool bad(String v) => v.isEmpty || v == 'null';
+      if (bad(t.id) || bad(t.token) || bad(t.businessId)) return null;
+      return t;
     } catch (_) {
       return null;
     }

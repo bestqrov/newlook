@@ -19,4 +19,9 @@ void main() {
     SharedPreferences.setMockInitialValues({TicketNotifier.storageKey: '{bad json'});
     expect(TicketNotifier(await SharedPreferences.getInstance()).state, isNull);
   });
+
+  test('incomplete stored ticket is ignored', () async {
+    SharedPreferences.setMockInitialValues({TicketNotifier.storageKey: '{}'});
+    expect(TicketNotifier(await SharedPreferences.getInstance()).state, isNull);
+  });
 }
