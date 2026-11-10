@@ -1,0 +1,33 @@
+// Language switcher (ar / en / es / fr).
+
+import { useTranslation } from "react-i18next"
+import type { ChangeEvent } from "react"
+
+const LABELS: Record<string, { short: string; native: string }> = {
+  "ar": { short: "ع", native: "العربية" },
+  "en": { short: "EN", native: "English" },
+  "es": { short: "ES", native: "Español" },
+  "fr": { short: "FR", native: "Français" }
+}
+
+const ORDER = ["ar","en","es","fr"]
+
+export function LanguageToggle() {
+  const { i18n } = useTranslation()
+  const current = ORDER.includes(i18n.language) ? i18n.language : ORDER[0]
+
+  return (
+    <select
+      value={current}
+      onChange={(e: ChangeEvent<HTMLSelectElement>) => i18n.changeLanguage(e.target.value)}
+      className="text-sm font-medium px-3 py-1.5 rounded-full border border-border bg-background text-foreground hover:bg-accent transition-colors cursor-pointer focus:outline-none focus:ring-2 focus:ring-ring"
+      aria-label="Select language"
+    >
+      {ORDER.map(code => (
+        <option key={code} value={code}>
+          {LABELS[code]?.native || code.toUpperCase()}
+        </option>
+      ))}
+    </select>
+  )
+}

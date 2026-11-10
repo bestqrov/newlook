@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+*.log
+
+# API uploads (receipts are private!)
+server/uploads/
+server/node_modules/
+server/.env
+*.tsbuildinfo
+.DS_Store

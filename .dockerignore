@@ -1,0 +1,11 @@
+.git
+node_modules
+server/node_modules
+dist
+server/uploads
+.env
+.env.*
+server/.env
+server/.env.*
+!**/.env.example
+*.log
