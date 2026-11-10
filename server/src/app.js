@@ -16,6 +16,7 @@ import proRoutes from "./routes/pro.js"
 import offerRoutes from "./routes/offers.js"
 import adminRoutes from "./routes/admin.js"
 import catalogRoutes from "./routes/catalog.js"
+import { proQueue, publicQueue } from "./routes/queue.js"
 
 export function createApp() {
   const app = express()
@@ -56,9 +57,11 @@ export function createApp() {
 
   app.get("/api/health", (_req, res) => res.json({ ok: true }))
   app.use("/api/auth", authRoutes)
+  app.use("/api/me/queue", proQueue)
   app.use("/api/me", proRoutes)
   app.use("/api/offers", offerRoutes)
   app.use("/api/admin", adminRoutes)
+  app.use("/api", publicQueue)
   app.use("/api", catalogRoutes)
   app.use("/api", publicRoutes)
   app.use("/api", (_req, _res, next) => next(new HttpError(404, "not_found")))
